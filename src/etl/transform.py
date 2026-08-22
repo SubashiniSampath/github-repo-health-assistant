@@ -15,15 +15,15 @@ def days_since_last_commit(commits):
     return days_ago
 
 
-def commits_last_6_months(commits):
-    """Count how many commits happened in the last 6 months"""
-    six_months_ago = datetime.now(timezone.utc).timestamp() - (6 * 30 * 24 * 60 * 60)
+def commits_in_last_n_days(commits, days):
+    """Count commits within the last N days (days is the most flexible/precise unit)"""
+    cutoff = datetime.now(timezone.utc).timestamp() - (days * 24 * 60 * 60)
 
     count = 0
     for commit in commits:
         commit_date_str = commit["commit"]["author"]["date"]
         commit_date = datetime.fromisoformat(commit_date_str.replace("Z", "+00:00"))
-        if commit_date.timestamp() > six_months_ago:
+        if commit_date.timestamp() > cutoff:
             count += 1
 
     return count
@@ -81,7 +81,7 @@ def build_health_scorecard(repo_info, commits, issues, contributors):
         "repo_name": repo_info.get("full_name"),
         "stars": repo_info.get("stargazers_count"),
         "days_since_last_commit": days_since_last_commit(commits),
-        "commits_last_6_months": commits_last_6_months(commits),
+        "commits_last_6_months": commits_in_last_n_days(commits, 180),
         "issues": issue_open_closed_ratio(issues),
         "avg_days_to_close_issue": average_issue_close_time(issues),
         "contributor_count": active_contributor_count(contributors),
