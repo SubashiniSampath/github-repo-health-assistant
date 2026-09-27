@@ -20,17 +20,17 @@ SERVER_PARAMS = StdioServerParameters(
     args=[os.path.join(os.path.dirname(__file__), "..", "mcp_server", "server.py")],
 )
 
+MODEL_NAME = "gemini-3.6-flash"  # or "gemini-3.6-turbo" if you want a cheaper, faster model
 
-async def ask_question(question: str):
-    # Start the MCP server and connect to it
+async def ask_question(question: str) -> str:
+    final_answer = "Sorry, I couldn't generate an answer."
+
     async with stdio_client(SERVER_PARAMS) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
 
-            # Ask the MCP server what tools it has
             tools_result = await session.list_tools()
 
-            # Convert MCP's tool format into the format Gemini expects
             gemini_tools = types.Tool(function_declarations=[
                 {
                     "name": tool.name,
@@ -44,9 +44,8 @@ async def ask_question(question: str):
                 for tool in tools_result.tools
             ])
 
-            # Send the question to Gemini, along with the list of available tools
             response = client.models.generate_content(
-                model="gemini-3.6-flash",
+                model=MODEL_NAME,
                 contents=question,
                 config=types.GenerateContentConfig(tools=[gemini_tools]),
             )
@@ -54,41 +53,39 @@ async def ask_question(question: str):
             candidate = response.candidates[0]
             part = candidate.content.parts[0]
 
-            # Did Gemini decide to call a tool?
             if part.function_call:
                 tool_name = part.function_call.name
                 tool_args = dict(part.function_call.args)
 
                 print(f"[Gemini is calling tool: {tool_name} with {tool_args}]")
 
-                # Actually run the tool via the MCP server
                 tool_result = await session.call_tool(tool_name, tool_args)
                 result_text = tool_result.content[0].text
-                
-                # Send the tool's result back to Gemini so it can write a final answer
-                # Retry a few times if Gemini's servers are temporarily overloaded
+
                 max_retries = 3
                 for attempt in range(max_retries):
                     try:
                         follow_up = client.models.generate_content(
-                            model="gemini-3.6-flash",
+                            model=MODEL_NAME,
                             contents=[
                                 question,
                                 f"Tool '{tool_name}' returned this data: {result_text}",
                                 "Now answer the original question in plain English using this data.",
                             ],
                         )
-                        print("\nAnswer:", follow_up.text)
-                        break  # success, exit the retry loop
+                        final_answer = follow_up.text
+                        break
                     except Exception as e:
                         if attempt < max_retries - 1:
                             print(f"[Gemini seems busy, retrying in 5 seconds... (attempt {attempt + 1}/{max_retries})]")
                             time.sleep(5)
                         else:
-                            print(f"\nSorry, Gemini's servers seem busy right now. Please try again in a minute. (Error: {e})")
+                            final_answer = f"Sorry, Gemini's servers seem busy right now. Please try again in a minute. (Error: {e})"
             else:
-                # Gemini answered directly without needing a tool
-                print("\nAnswer:", part.text)
+                final_answer = part.text
+
+    print("\nAnswer:", final_answer)
+    return final_answer
 
 
 if __name__ == "__main__":
