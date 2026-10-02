@@ -17,15 +17,25 @@ def get_repo_health(owner: str, repo: str) -> dict:
     """
     Get the full health scorecard for a GitHub repo — stars, recent commit
     activity, issue open/closed ratio, average time to close issues, and
-    contributor count. Use this for general 'is this repo healthy/active'
-    questions.
-    """
-    repo_info = get_repo_info(owner, repo)
-    commits = get_commits(owner, repo)
-    issues = get_issues(owner, repo)
-    contributors = get_contributors(owner, repo)
+    contributor count.
 
-    return build_health_scorecard(repo_info, commits, issues, contributors)
+    IMPORTANT: Both 'owner' (the GitHub username or organization) and 'repo'
+    (the repository name) are required and must be separate, specific values
+    — e.g., owner='facebook', repo='react'. Do NOT guess the owner if the
+    user's question only mentions a repo name without clearly specifying who
+    owns it. Instead, ask the user to clarify which owner/organization they mean.
+    """
+
+    try:
+        repo_info = get_repo_info(owner, repo)
+        commits = get_commits(owner, repo)
+        issues = get_issues(owner, repo)
+        contributors = get_contributors(owner, repo)
+
+        return build_health_scorecard(repo_info, commits, issues, contributors)
+
+    except ValueError as e:
+        return {"error": str(e)}
 
 
 @mcp.tool()

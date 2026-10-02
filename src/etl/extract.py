@@ -38,7 +38,15 @@ def get_repo_info(owner, repo):
     """Get basic info about a repo (stars, forks, description, etc.) - only 1 page, no pagination needed"""
     url = f"https://api.github.com/repos/{owner}/{repo}"
     response = requests.get(url, headers=HEADERS)
-    return response.json()
+    data =  response.json()
+    
+    if response.status_code == 404:
+        raise ValueError(
+            f"Could not find a repository at '{owner}/{repo}' on GitHub. "
+            f"Please check that both the owner and repo name are correct."
+        )
+
+    return data
 
 
 def get_commits(owner, repo):

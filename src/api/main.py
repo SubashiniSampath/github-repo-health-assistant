@@ -20,13 +20,16 @@ def home():
 @app.get("/repo-health")
 def repo_health(owner: str, repo: str):
     """Returns the full health scorecard for a given GitHub repo"""
-    repo_info = get_repo_info(owner, repo)
-    commits = get_commits(owner, repo)
-    issues = get_issues(owner, repo)
-    contributors = get_contributors(owner, repo)
+    try:
+        repo_info = get_repo_info(owner, repo)
+        commits = get_commits(owner, repo)
+        issues = get_issues(owner, repo)
+        contributors = get_contributors(owner, repo)
 
-    scorecard = build_health_scorecard(repo_info, commits, issues, contributors)
-    return scorecard
+        scorecard = build_health_scorecard(repo_info, commits, issues, contributors)
+        return scorecard
+    except ValueError as e:
+            return {"error": str(e)}
 
 @app.get("/ask")
 async def ask(question: str):
