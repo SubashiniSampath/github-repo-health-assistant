@@ -28,6 +28,28 @@ def commits_in_last_n_days(commits, days):
 
     return count
 
+def issues_in_last_n_days(issues, days):
+    """Count issues opened and closed within the last N days"""
+    cutoff = datetime.now(timezone.utc).timestamp() - (days * 24 * 60 * 60)
+
+    opened_count = 0
+    closed_count = 0
+
+    for issue in issues:
+        if "pull_request" in issue:
+            continue
+
+        created = datetime.fromisoformat(issue["created_at"].replace("Z", "+00:00"))
+        if created.timestamp() > cutoff:
+            opened_count += 1
+
+        if issue["state"] == "closed" and issue["closed_at"] is not None:
+            closed = datetime.fromisoformat(issue["closed_at"].replace("Z", "+00:00"))
+            if closed.timestamp() > cutoff:
+                closed_count += 1
+
+    return {"opened": opened_count, "closed": closed_count, "days_requested": days}
+
 
 def issue_open_closed_ratio(issues):
     """Count open vs closed issues"""

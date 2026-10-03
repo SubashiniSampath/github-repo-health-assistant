@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>GitHub Repo Health Assistant</title>
+    <style>
+        body {
+            font-family: -apple-system, system-ui, sans-serif;
+            max-width: 600px;
+            margin: 60px auto;
+            padding: 0 20px;
+            color: #1a1a1a;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-bottom: 4px;
+        }
+        p.subtitle {
+            color: #666;
+            margin-top: 0;
+            margin-bottom: 32px;
+        }
+        label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+            margin-top: 16px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        button {
+            margin-top: 24px;
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            background: #1a1a1a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 32px;
+            padding: 16px;
+            background: #f7f7f7;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            display: none;
+        }
+        #error {
+            margin-top: 32px;
+            padding: 16px;
+            background: #fdecea;
+            color: #b3261e;
+            border-radius: 6px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>GitHub Repo Health Assistant</h1>
+    <p class="subtitle">Check if a repo is actively maintained, or ask a specific question about it.</p>
+
+    <label for="owner">Owner</label>
+    <input type="text" id="owner" placeholder="e.g. facebook">
+
+    <label for="repo">Repo</label>
+    <input type="text" id="repo" placeholder="e.g. react">
+
+    <label for="question">Question (optional)</label>
+    <input type="text" id="question" placeholder="e.g. how many commits in the last 2 weeks?">
+
+    <button id="submitBtn" onclick="checkHealth()">Check Health</button>
+
+    <div id="result"></div>
+    <div id="error"></div>
+
+    <script>
+        async function checkHealth() {
+            const owner = document.getElementById('owner').value.trim();
+            const repo = document.getElementById('repo').value.trim();
+            const question = document.getElementById('question').value.trim();
+            const resultBox = document.getElementById('result');
+            const errorBox = document.getElementById('error');
+            const button = document.getElementById('submitBtn');
+
+            resultBox.style.display = 'none';
+            errorBox.style.display = 'none';
+
+            if (!owner || !repo) {
+                errorBox.textContent = 'Please enter both an owner and a repo name.';
+                errorBox.style.display = 'block';
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = 'Checking...';
+
+            try {
+                let response, data;
+
+                if (question) {
+                    const fullQuestion = `${question} (for the repo ${owner}/${repo})`;
+                    response = await fetch(`/ask?question=${encodeURIComponent(fullQuestion)}`);
+                    data = await response.json();
+
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    resultBox.textContent = data.answer;
+                } else {
+                    response = await fetch(`/repo-health?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
+                    data = await response.json();
+
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    resultBox.textContent = JSON.stringify(data, null, 2);
+                }
+
+                resultBox.style.display = 'block';
+            } catch (err) {
+                errorBox.textContent = 'Something went wrong: ' + err.message;
+                errorBox.style.display = 'block';
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Check Health';
+            }
+        }
+    </script>
+</body>
+</html>

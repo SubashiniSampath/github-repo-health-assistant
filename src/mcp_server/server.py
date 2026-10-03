@@ -6,7 +6,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "etl"))
 
 from mcp.server.fastmcp import FastMCP
 from extract import get_repo_info, get_commits, get_issues, get_contributors
-from transform import build_health_scorecard, commits_in_last_n_days
+from transform import build_health_scorecard, commits_in_last_n_days, issues_in_last_n_days
 
 # Create the MCP server, give it a name
 mcp = FastMCP("github-repo-health")
@@ -41,18 +41,26 @@ def get_repo_health(owner: str, repo: str) -> dict:
 @mcp.tool()
 def get_commit_activity(owner: str, repo: str, days: int) -> dict:
     """
-    Get the exact number of commits in a specific, custom time window
-    (in days). Use this whenever the user asks about a specific number of
-    days, weeks, or months (convert weeks/months to days first) — instead
-    of relying on the default 6-month figure from get_repo_health.
+    Get EXACT commit and issue activity (opened/closed) for a specific,
+    custom time window (in days). ALWAYS use this tool — instead of
+    relying on get_repo_health's default 6-month/all-time figures —
+    whenever the user's question mentions a specific time period like
+    'last week' (days=7), 'last month' (days=30), 'last 2 weeks' (days=14),
+    'yesterday' (days=1), etc. Convert the user's time period into the
+    correct number of days before calling this tool.
     """
     commits = get_commits(owner, repo)
-    count = commits_in_last_n_days(commits, days)
+    issues = get_issues(owner, repo)
+
+    commit_count = commits_in_last_n_days(commits, days)
+    issue_activity = issues_in_last_n_days(issues, days)
 
     return {
         "repo_name": f"{owner}/{repo}",
         "days_requested": days,
-        "commit_count": count
+        "commit_count": commit_count,
+        "issues_opened": issue_activity["opened"],
+        "issues_closed": issue_activity["closed"],
     }
 
 

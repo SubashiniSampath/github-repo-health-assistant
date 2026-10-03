@@ -8,13 +8,16 @@ from fastapi import FastAPI
 from extract import get_repo_info, get_commits, get_issues, get_contributors
 from transform import build_health_scorecard
 from client import ask_question
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 app = FastAPI(title="GitHub Repo Health API")
+app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static")), name="static")
 
 @app.get("/")
 def home():
-    """A simple welcome message, so visiting the base URL shows something useful"""
-    return {"message": "Welcome to the GitHub Repo Health API. Try /repo-health?owner=psf&repo=requests"}
+    """Serves the frontend page"""
+    return FileResponse(os.path.join(os.path.dirname(__file__), "static", "index.html"))
 
 
 @app.get("/repo-health")

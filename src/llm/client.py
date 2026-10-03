@@ -16,15 +16,31 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 # This tells the client HOW to start our MCP server
 SERVER_PARAMS = StdioServerParameters(
-    command=sys.executable,  # uses the same python interpreter you're running now
+    command=sys.executable,
     args=[os.path.join(os.path.dirname(__file__), "..", "mcp_server", "server.py")],
 )
 
-MODEL_NAME = "gemini-3.6-flash"  # or "gemini-3.6-turbo" if you want a cheaper, faster model
+MODEL_NAME = "gemini-3.6-flash"
+
+
+def call_gemini_with_retry(contents, tools_config, max_retries=3):
+    """Calls Gemini, retrying a few times if its servers are temporarily busy."""
+    for attempt in range(max_retries):
+        try:
+            return client.models.generate_content(
+                model=MODEL_NAME,
+                contents=contents,
+                config=tools_config,
+            )
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"[Gemini seems busy, retrying in 5 seconds... (attempt {attempt + 1}/{max_retries})]")
+                time.sleep(5)
+            else:
+                raise e
+
 
 async def ask_question(question: str) -> str:
-    final_answer = "Sorry, I couldn't generate an answer."
-
     async with stdio_client(SERVER_PARAMS) as (read, write):
         async with ClientSession(read, write) as session:
             await session.initialize()
@@ -43,49 +59,41 @@ async def ask_question(question: str) -> str:
                 }
                 for tool in tools_result.tools
             ])
+            tools_config = types.GenerateContentConfig(tools=[gemini_tools])
 
-            response = client.models.generate_content(
-                model=MODEL_NAME,
-                contents=question,
-                config=types.GenerateContentConfig(tools=[gemini_tools]),
-            )
+            # Keep a running conversation so Gemini can make multiple tool calls
+            conversation = [question]
+            max_tool_calls = 5  # safety limit, so it can't loop forever
 
-            candidate = response.candidates[0]
-            part = candidate.content.parts[0]
+            for _ in range(max_tool_calls):
+                try:
+                    response = call_gemini_with_retry(conversation, tools_config)
+                except Exception as e:
+                    return f"Sorry, Gemini's servers seem busy right now. Please try again in a minute. (Error: {e})"
 
-            if part.function_call:
+                candidate = response.candidates[0]
+                part = candidate.content.parts[0]
+
+                if not part.function_call:
+                    # Gemini is done calling tools and has given a final answer
+                    print("\nAnswer:", part.text)
+                    return part.text
+
                 tool_name = part.function_call.name
                 tool_args = dict(part.function_call.args)
-
                 print(f"[Gemini is calling tool: {tool_name} with {tool_args}]")
 
                 tool_result = await session.call_tool(tool_name, tool_args)
                 result_text = tool_result.content[0].text
 
-                max_retries = 3
-                for attempt in range(max_retries):
-                    try:
-                        follow_up = client.models.generate_content(
-                            model=MODEL_NAME,
-                            contents=[
-                                question,
-                                f"Tool '{tool_name}' returned this data: {result_text}",
-                                "Now answer the original question in plain English using this data.",
-                            ],
-                        )
-                        final_answer = follow_up.text
-                        break
-                    except Exception as e:
-                        if attempt < max_retries - 1:
-                            print(f"[Gemini seems busy, retrying in 5 seconds... (attempt {attempt + 1}/{max_retries})]")
-                            time.sleep(5)
-                        else:
-                            final_answer = f"Sorry, Gemini's servers seem busy right now. Please try again in a minute. (Error: {e})"
-            else:
-                final_answer = part.text
+                # Add this tool call and its result into the conversation,
+                # so Gemini can decide if it needs to call ANOTHER tool next
+                conversation.append(f"[Called tool '{tool_name}' with {tool_args}]")
+                conversation.append(f"Tool result: {result_text}")
 
-    print("\nAnswer:", final_answer)
-    return final_answer
+            fallback = "Sorry, I wasn't able to fully answer that after several tool calls. Please try rephrasing your question."
+            print("\nAnswer:", fallback)
+            return fallback
 
 
 if __name__ == "__main__":
