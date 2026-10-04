@@ -5,7 +5,7 @@ Ask natural-language questions about any public GitHub repo — is it actively m
 🔗 **Live demo:** [Try it here](https://github-repo-health-api.onrender.com/)
 📂 **Repo:**.     github.com/SubashiniSampath/github-repo-health-assistant
 
-<img width="1092" height="1120" alt="image" src="https://github.com/user-attachments/assets/95ca4abf-feb5-4ed3-bf52-fc09c80893ce" />
+<img width="550" height="600" alt="image" src="https://github.com/user-attachments/assets/95ca4abf-feb5-4ed3-bf52-fc09c80893ce" />
 
 
 **What it does**
@@ -24,26 +24,11 @@ Deployment — Render
 
 **Architecture**
 
-User question
-    │
-    ▼
-FastAPI (/ask endpoint)
-    │
-    ▼
-Gemini ──(decides which tool to call)──▶ MCP Server
-    │                                         │
-    │◀───────────(tool result)────────────────┘
-    │
-    ▼
-Gemini may call another tool, or
-return a final natural-language answer
-    │
-    ▼
-Response shown to user
+<img width="500" height="550" alt="image" src="https://github.com/user-attachments/assets/6763ad93-dabb-4c9e-89f4-34b0dc050854" />
 
 Each MCP tool (get_repo_health, get_commit_activity, compare_repos) wraps the ETL pipeline: Extract (pull raw data from GitHub's API, with pagination) → Transform (turn it into clean metrics — commit activity, issue ratios, etc.).
 
-**API endpoints**
+**API endpoints:**
 Endpoint	Description	Example:
 
 GET /	Frontend UI	/
