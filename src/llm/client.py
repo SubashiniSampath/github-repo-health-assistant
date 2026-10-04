@@ -33,6 +33,14 @@ def call_gemini_with_retry(contents, tools_config, max_retries=3):
                 config=tools_config,
             )
         except Exception as e:
+            error_str = str(e)
+            if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
+                # Quota exceeded - retrying won't help, fail fast with a clear message
+                raise RuntimeError(
+                    "This demo has reached its daily usage limit on the free Gemini API tier. "
+                    "Please try again later, or run the project locally with your own API key "
+                    "(see the README for setup instructions)."
+                )
             if attempt < max_retries - 1:
                 print(f"[Gemini seems busy, retrying in 5 seconds... (attempt {attempt + 1}/{max_retries})]")
                 time.sleep(5)
@@ -69,7 +77,7 @@ async def ask_question(question: str) -> str:
                 try:
                     response = call_gemini_with_retry(conversation, tools_config)
                 except Exception as e:
-                    return f"Sorry, Gemini's servers seem busy right now. Please try again in a minute. (Error: {e})"
+                    return f"Sorry — {str(e)}"
 
                 candidate = response.candidates[0]
                 part = candidate.content.parts[0]

@@ -123,6 +123,10 @@
                     resultBox.textContent = data.answer;
                 } else {
                     response = await fetch(`/repo-health?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`);
+                    if (!response.ok) 
+                    {
+                        throw new Error(`Server error (${response.status}). Please try again in a moment.`);
+                    }
                     data = await response.json();
 
                     if (data.error) {
