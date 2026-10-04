@@ -20,14 +20,17 @@ def fetch_all_pages(url):
         response = requests.get(url, headers=HEADERS, params={"per_page": 100, "page": page})
         data = response.json()
 
-        # If GitHub returns an empty list, we've reached the end
+        if isinstance(data, dict):
+            # GitHub returned an error response instead of a list of items
+            error_message = data.get("message", "Unknown error from GitHub API")
+            raise ValueError(f"GitHub API error: {error_message}")
+
         if not data:
             break
 
         all_data.extend(data)
         page += 1
 
-        # Safety brake: stop after 10 pages (1000 items) so we don't accidentally loop forever
         if page > 10:
             break
 
@@ -39,7 +42,7 @@ def get_repo_info(owner, repo):
     url = f"https://api.github.com/repos/{owner}/{repo}"
     response = requests.get(url, headers=HEADERS)
     data =  response.json()
-    
+
     if response.status_code == 404:
         raise ValueError(
             f"Could not find a repository at '{owner}/{repo}' on GitHub. "

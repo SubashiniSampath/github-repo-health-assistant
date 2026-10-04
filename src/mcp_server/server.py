@@ -49,19 +49,22 @@ def get_commit_activity(owner: str, repo: str, days: int) -> dict:
     'yesterday' (days=1), etc. Convert the user's time period into the
     correct number of days before calling this tool.
     """
-    commits = get_commits(owner, repo)
-    issues = get_issues(owner, repo)
+    try:
+        commits = get_commits(owner, repo)
+        issues = get_issues(owner, repo)
 
-    commit_count = commits_in_last_n_days(commits, days)
-    issue_activity = issues_in_last_n_days(issues, days)
+        commit_count = commits_in_last_n_days(commits, days)
+        issue_activity = issues_in_last_n_days(issues, days)
 
-    return {
-        "repo_name": f"{owner}/{repo}",
-        "days_requested": days,
-        "commit_count": commit_count,
-        "issues_opened": issue_activity["opened"],
-        "issues_closed": issue_activity["closed"],
-    }
+        return {
+            "repo_name": f"{owner}/{repo}",
+            "days_requested": days,
+            "commit_count": commit_count,
+            "issues_opened": issue_activity["opened"],
+            "issues_closed": issue_activity["closed"],
+        }
+    except ValueError as e:
+        return {"error": str(e)}
 
 
 @mcp.tool()
